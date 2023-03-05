@@ -1,7 +1,10 @@
 package com.github.dev380.steampipe.command;
 
 import com.github.dev380.steampipe.Colors;
-import java.util.Arrays;
+import com.github.dev380.steampipe.response.Response;
+import com.github.dev380.steampipe.response.ResponseMessage;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
 import net.md_5.bungee.api.ChatColor;
 import org.bukkit.entity.Player;
 
@@ -11,32 +14,42 @@ public class CommandHelp extends Command {
   private static final int MAX_ARGS_PER_COMMAND =
       2; // Max args to show, not max args that a command can have.
   private String pluginName;
+  private CommandManager commandManager;
 
-  public CommandHelp(String pluginName) {
+  public CommandHelp(String pluginName, CommandManager commandManager) {
     super(
         "help",
         "help menu",
         new Args().add("page", "a help page number or command to view help for"),
         Category.DEFAULT);
     this.pluginName = pluginName;
+    this.commandManager = commandManager;
   }
 
-  public void run(Player player, String[] args) {
+  @Override
+  public Response run(Context ctx) {
+    Player player = ctx.getPlayer();
+    String[] args = ctx.getArgs();
     HelpStringGetter helpStringHandler;
-    Boolean argInCommandList =
-        Arrays.stream(CommandManager.getCommandNames()).anyMatch(args[0]::equals);
+    Response.Status status = Response.Status.SUCCESS;
+    Boolean argInCommandList = commandManager.getCommandList().stream().anyMatch(args[0]::equals);
 
-    Integer amountOfHelpPages = CommandManager.getCommands().length / COMMANDS_PER_PAGE + 1;
+    Integer amountOfHelpPages = commandManager.getCommandList().size() / COMMANDS_PER_PAGE + 1;
     if (isNumeric(args[0])
         && 0 <= Integer.parseInt(args[0])
         && Integer.parseInt(args[0]) <= amountOfHelpPages) {
-      helpStringHandler = new HelpNumberHandler(MAX_ARGS_PER_COMMAND, COMMANDS_PER_PAGE);
+      helpStringHandler =
+          new HelpNumberHandler(
+              pluginName, commandManager.getCommandList(), MAX_ARGS_PER_COMMAND, COMMANDS_PER_PAGE);
     } else if (argInCommandList) {
-      helpStringHandler = new HelpForCommandHandler(MAX_ARGS_PER_COMMAND);
+      helpStringHandler =
+          new HelpForCommandHandler(
+              pluginName, commandManager.getCommandList(), MAX_ARGS_PER_COMMAND);
     } else {
+      status = Response.Status.ERROR;
       helpStringHandler = new InvalidArgHandler();
     }
-    player.sendMessage(helpStringHandler.getHelpString(args[0]));
+    return new Response(status, helpStringHandler.getHelpString(args[0]));
   }
 
   private Boolean isNumeric(String string) {
@@ -56,31 +69,38 @@ interface HelpStringGetter {
    * @param helpArg argument given to help function
    * @return the help response, or null if could not process
    */
-  public String getHelpString(String helpArg);
+  public ResponseMessage getHelpString(String helpArg);
 }
 
 class HelpNumberHandler implements HelpStringGetter {
+  private String pluginName;
+  private ArrayList<Command> commandList;
   private int maxArgsPerCommand;
   private int commandsPerPage;
 
-  public HelpNumberHandler(int maxArgsPerCommand, int commandsPerPage) {
+  public HelpNumberHandler(
+      String pluginName,
+      ArrayList<Command> commandList,
+      int maxArgsPerCommand,
+      int commandsPerPage) {
+    this.pluginName = pluginName;
     this.maxArgsPerCommand = maxArgsPerCommand;
     this.commandsPerPage = commandsPerPage;
   }
 
   @Override
-  public String getHelpString(String helpArg) {
+  public ResponseMessage getHelpString(String helpArg) {
     try {
-      String helpOutput = Prefix.INFO;
+      ResponseMessage helpOutput = new ResponseMessage();
       int pageNum = Integer.parseInt(helpArg);
 
-      helpOutput += helpPageHeader(pageNum);
+      helpOutput.add(helpPageHeader(pageNum));
 
       // Get list of commands on the given page
       Command[] commandsToDisplay = getPagedCommands(pageNum);
 
       for (Command command : commandsToDisplay) {
-        helpOutput += new HelpLineGetter(maxArgsPerCommand).getHelpLine(command);
+        helpOutput.add(new HelpLineGetter(maxArgsPerCommand).getHelpLine(command));
       }
       return helpOutput;
     } catch (NumberFormatException shouldNeverHappen) {
@@ -88,39 +108,40 @@ class HelpNumberHandler implements HelpStringGetter {
     }
   }
 
-  private String helpPageHeader(int pageNum) {
+  private ResponseMessage helpPageHeader(int pageNum) {
     return (pageNum == 1)
-        ? "Welcome to " + pluginName + "!"
-        : pluginName + " help menu: Page " + ChatColor.BOLD + Prefix.HIGHLIGHT_COLOR + pageNum;
+        ? new ResponseMessage("Welcome to " + pluginName + "!")
+        : new ResponseMessage(pluginName + " help menu: Page ")
+            .addEmphasis(String.valueOf(pageNum));
   }
   // The commands in a given page number
   private Command[] getPagedCommands(int pageNum) {
-    return Arrays.stream(
-            Arrays.copyOfRange(
-                CommandManager.getCommands(),
-                (pageNum - 1) * commandsPerPage,
-                pageNum * commandsPerPage))
+    return commandList.subList((pageNum - 1) * commandsPerPage, pageNum * commandsPerPage).stream()
         .filter(command -> command != null)
         .toArray(Command[]::new);
   }
 }
 
 class HelpForCommandHandler implements HelpStringGetter {
+  private String pluginName;
+  private ArrayList<Command> commandList;
   private int maxArgsPerCommand;
 
-  public HelpForCommandHandler(int maxArgsPerCommand) {
+  public HelpForCommandHandler(
+      String pluginName, ArrayList<Command> commandList, int maxArgsPerCommand) {
+    this.pluginName = pluginName;
     this.maxArgsPerCommand = maxArgsPerCommand;
   }
 
   @Override
-  public String getHelpString(String helpArg) {
-    String helpOutput = Prefix.INFO;
-    helpOutput += pluginName + " help menu";
+  public ResponseMessage getHelpString(String helpArg) {
+    ResponseMessage helpOutput = new ResponseMessage();
+    helpOutput.addString(pluginName + " help menu");
 
-    for (Command command : CommandManager.getCommands()) {
+    for (Command command : commandList) {
       if (helpArg.equals(command.getName())) {
-        helpOutput += new HelpLineGetter(maxArgsPerCommand).getHelpLine(command);
-        helpOutput += new HelpLineGetter(maxArgsPerCommand).getInDepthHelp(command);
+        helpOutput.add(new HelpLineGetter(maxArgsPerCommand).getHelpLine(command));
+        helpOutput.add(new HelpLineGetter(maxArgsPerCommand).getInDepthHelp(command));
       }
     }
     return helpOutput;
@@ -129,8 +150,8 @@ class HelpForCommandHandler implements HelpStringGetter {
 
 class InvalidArgHandler implements HelpStringGetter {
   @Override
-  public String getHelpString(String helpArg) {
-    return Prefix.ERROR + "Help page not found: " + ChatColor.BOLD + helpArg;
+  public ResponseMessage getHelpString(String helpArg) {
+    return new ResponseMessage("Help page not found: ").addEmphasis(helpArg);
   }
 }
 
@@ -148,35 +169,20 @@ class HelpLineGetter {
   }
 
   /** Gets a line of help in the format `command [args]` */
-  public String getHelpLine(Command command) {
-    return "\n"
-        + Colors.highlight
-        + ChatColor.BOLD
-        + command.getName()
-        + ChatColor.RESET
-        + Color.highlight
-        + " "
-        + command.getArgs().getNames()
-        + Colors.info
-        + " - "
-        + command.getDescription();
+  public ResponseMessage getHelpLine(Command command) {
+    return new ResponseMessage("\n")
+        .addString("" + Colors.highlight + ChatColor.BOLD + command.getName())
+        .addEmphasis(" " + command.getArgs().getNames().stream().collect(Collectors.joining(" ")))
+        .addString(" - " + command.getDescription());
   }
 
   /** In depth help */
-  public String getInDepthHelp(Command command) {
-    String helpOutput = "";
+  public ResponseMessage getInDepthHelp(Command command) {
+    ResponseMessage helpOutput = new ResponseMessage();
     for (Args.Entry entry : command.getArgs().getArgs()) {
-      helpOutput +=
-          "\n"
-              + Prefix.INFO_COLOR
-              + "-"
-              + Prefix.HIGHLIGHT_COLOR
-              + ChatColor.BOLD
-              + entry.getName()
-              + ChatColor.RESET
-              + Prefix.INFO_COLOR
-              + " - "
-              + entry.getDescription();
+      helpOutput
+          .addString("\n-" + Colors.highlight + ChatColor.BOLD + entry.getName())
+          .addString(" - " + entry.getDescription());
     }
     return helpOutput;
   }

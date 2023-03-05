@@ -16,20 +16,40 @@ public class ResponseMessage {
     this.addString(text);
   }
 
+  /** Add another ResponseMessage to this one */
+  public ResponseMessage add(ResponseMessage responseMessage) {
+    for (Component component : responseMessage.components) {
+      components.add(component);
+    }
+    return this;
+  }
+
+  /** Add a singular component to this ResponseMessage */
   public ResponseMessage addComponent(Component component) {
     components.add(component);
     return this;
+  }
+
+  /**
+   * addComponent but easier to type
+   *
+   * @see addComponent(Component)
+   */
+  public ResponseMessage add(Component component) {
+    return this.addComponent(component);
   }
 
   public ArrayList<Component> getComponents() {
     return components;
   }
 
+  /** Add a string to this component */
   public ResponseMessage addString(String string) {
     components.add(new StringComponent(string));
     return this;
   }
 
+  /** Add an emphasized string to this component */
   public ResponseMessage addEmphasis(String string) {
     components.add(new EmphasisComponent(string));
     return this;

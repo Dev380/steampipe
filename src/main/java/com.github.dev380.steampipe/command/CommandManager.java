@@ -45,6 +45,22 @@ public class CommandManager {
     return this;
   }
 
+  /**
+   * Registers steampipe's help command Convenience method because {@link CommandHelp} requires a
+   * reference to the CommandManager so it can't chain
+   *
+   * @param pluginName the name of the plugin to be shown in the help menu
+   */
+  public CommandManager registerHelp(String pluginName) {
+    commands.add(new CommandHelp(pluginName, this));
+    return this;
+  }
+
+  /** Returns an ArrayList of registered commands */
+  public ArrayList<Command> getCommandList() {
+    return commands;
+  }
+
   public String getCommandPrefix() {
     return commandPrefix;
   }
@@ -61,6 +77,10 @@ public class CommandManager {
    * @return if a command was detected in the message and handled
    */
   public Boolean handleCommand(Player player, String message) {
+    if (!commandPrefix.equals(message.split(" ")[0])) {
+      return false;
+    }
+
     Boolean handledCommand = false;
 
     String[] commandAndArgs = getCommandAndArgs(message);

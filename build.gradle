@@ -4,8 +4,11 @@ plugins {
 	id 'com.diffplug.spotless' version '6.16.0'
 }
 
-group = 'com.github.dev380'
+group = 'com.github.Dev380'
 version = '0.0.1'
+
+sourceCompatibility = 1.8 // java 8
+targetCompatibility = 1.8
 
 repositories {
 mavenLocal()
