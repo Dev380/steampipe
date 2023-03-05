@@ -1,14 +1,14 @@
 plugins {
 	id 'java-library'
-	id 'maven'
+	id 'maven-publish'
 	id 'com.diffplug.spotless' version '6.16.0'
 }
 
 group = 'com.github.Dev380'
 version = '0.0.2'
 
-sourceCompatibility = 1.8 // java 8
-targetCompatibility = 1.8
+sourceCompatibility = 1.17 // java 17
+targetCompatibility = 1.17
 
 repositories {
 mavenLocal()
