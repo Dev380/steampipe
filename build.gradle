@@ -1,8 +1,10 @@
 plugins {
 	id 'java-library'
+	id 'maven-publish'
 	id 'com.diffplug.spotless' version '6.16.0'
 }
 
+group = 'com.github.dev380'
 version = '0.0.1'
 
 repositories {
@@ -17,21 +19,34 @@ dependencies {
 compileOnly 'org.spigotmc:spigot-api:1.19.3-R0.1-SNAPSHOT'
 }
 
-spotless {
-format 'misc', {
-	// define the files to apply `misc` to
-	target '*.gradle', '*.md', '.gitignore'
-
-	// define the steps to apply to those files
-	trimTrailingWhitespace()
-	indentWithTabs() // or spaces. Takes an integer argument if you don't like 4
-}
-
-
 java {
-	// google-java-format
-	googleJavaFormat().reflowLongStrings()
-	// fix formatting of type annotations
-	formatAnnotations()
+	withSourcesJar()
+	withJavadocJar()
 }
+
+publishing {
+	publications {
+		maven(MavenPublication) {
+			from components.java
+		}
+	}
+}
+
+spotless {
+	format 'misc', {
+		// define the files to apply `misc` to
+		target '*.gradle', '*.md', '.gitignore'
+
+		// define the steps to apply to those files
+		trimTrailingWhitespace()
+		indentWithTabs() // or spaces. Takes an integer argument if you don't like 4
+	}
+
+
+	java {
+		// google-java-format
+		googleJavaFormat().reflowLongStrings()
+		// fix formatting of type annotations
+		formatAnnotations()
+	}
 }
